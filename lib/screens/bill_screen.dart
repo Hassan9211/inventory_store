@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/cart_item.dart';
+import '../services/pdf_service.dart';
 
 class BillScreen extends StatelessWidget {
   final List<CartItem> cart;
@@ -56,6 +57,17 @@ class BillScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                Padding(
+                  padding: EdgeInsets.all(10),
+                  child: ElevatedButton.icon(
+                    icon: Icon(Icons.picture_as_pdf),
+                    label: Text("GENERATE PDF"),
+                    onPressed: () {
+                      PdfService.generateBillPdf(cart);
+                    },
+                  ),
+                ),
+
                 Padding(
                   padding: EdgeInsets.all(10),
                   child: ElevatedButton(
