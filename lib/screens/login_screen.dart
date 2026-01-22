@@ -1,89 +1,176 @@
-// ignore_for_file: deprecated_member_use, use_key_in_widget_constructors
+// ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
+import 'package:inventory_store/screens/signup_screen';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'home_screen.dart';
 
-class LoginScreen extends StatelessWidget {
-  final userCtrl = TextEditingController();
-  final pinCtrl = TextEditingController();
+class LoginScreen extends StatefulWidget {
+  final String username;
+  final String pin;
+  final bool skipAutoLogin; // to prevent auto-login after signup
 
-  final String username = "hassanraza2486@gmail.com";
-  final String pin = "88192275";
+  const LoginScreen({
+    super.key,
+    required this.username,
+    required this.pin,
+    this.skipAutoLogin = false,
+  });
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final userCtrl = TextEditingController();
+  final passwordCtrl = TextEditingController();
+  bool hidePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.skipAutoLogin) _checkAutoLogin();
+  }
+
+  Future<void> _checkAutoLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedUser = prefs.getString('username');
+    final savedPin = prefs.getString('pin');
+
+    if (savedUser != null &&
+        savedPin != null &&
+        savedUser.isNotEmpty &&
+        savedPin.isNotEmpty) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => HomeScreen()),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final formWidth = width < 600 ? (width * 0.9).toDouble() : 400.0;
+
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        backgroundColor: Colors.blue,
-        title: Text("Login", style: TextStyle(color: Colors.white)),
-      ),
-      body: Padding(
-        padding: EdgeInsets.all(20),
+      backgroundColor: Colors.grey[200],
+      body: Center(
+        child: SingleChildScrollView(
+          child: Container(
+            width: formWidth,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: const [
+                BoxShadow(color: Colors.black12, blurRadius: 15),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(Icons.lock_outline, size: 60, color: Colors.blue),
+                const SizedBox(height: 15),
+                const Text(
+                  "Welcome Back",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 30),
 
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              margin: EdgeInsets.only(top: 20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: Colors.grey[100],
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.5),
-                    spreadRadius: 1,
-                    blurRadius: 5,
-                    offset: Offset(0, 3),
+                TextField(
+                  controller: userCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    labelText: "Email",
+                    prefixIcon: const Icon(Icons.email_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                ],
-              ),
-              child: TextField(
-                keyboardType: TextInputType.emailAddress,
-                controller: userCtrl,
-                decoration: InputDecoration(labelText: "Email"),
-              ),
-            ),
-            Container(
-              margin: EdgeInsets.only(top: 20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: Colors.grey[100],
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.5),
-                    spreadRadius: 1,
-                    blurRadius: 5,
-                    offset: Offset(0, 3),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 20),
 
-              child: TextField(
-                controller: pinCtrl,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: "PIN"),
-                obscureText: true,
-              ),
+                TextField(
+                  controller: passwordCtrl,
+                  obscureText: hidePassword,
+                  decoration: InputDecoration(
+                    labelText: "PIN",
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        hidePassword ? Icons.visibility_off : Icons.visibility,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          hidePassword = !hidePassword;
+                        });
+                      },
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 30),
+
+                SizedBox(
+                  height: 50,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () async {
+                      if (userCtrl.text.isEmpty || passwordCtrl.text.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Please enter Email & PIN"),
+                          ),
+                        );
+                        return;
+                      }
+
+                      if (userCtrl.text == widget.username &&
+                          passwordCtrl.text == widget.pin) {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setString('username', userCtrl.text);
+                        await prefs.setString('pin', passwordCtrl.text);
+
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (_) => HomeScreen()),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Wrong Email or PIN")),
+                        );
+                      }
+                    },
+                    child: const Text("Login", style: TextStyle(fontSize: 18)),
+                  ),
+                ),
+
+                const SizedBox(height: 15),
+
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => SignUpPage()),
+                    );
+                  },
+                  child: const Text(
+                    "Don't have an account? Sign Up",
+                    style: TextStyle(color: Colors.blue),
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              child: Text("Login"),
-              onPressed: () {
-                if (userCtrl.text == username && pinCtrl.text == pin) {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => HomeScreen()),
-                  );
-                } else {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text("Wrong credentials")));
-                }
-              },
-            ),
-          ],
+          ),
         ),
       ),
     );

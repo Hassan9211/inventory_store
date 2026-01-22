@@ -1,0 +1,161 @@
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'login_screen.dart';
+
+class SignUpPage extends StatelessWidget {
+  SignUpPage({super.key});
+
+  final emailCtrl = TextEditingController();
+  final passwordCtrl = TextEditingController();
+  final confirmCtrl = TextEditingController();
+
+  Future<void> _saveCredentials(String email, String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('username', email);
+    await prefs.setString('pin', password);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final formWidth = width < 600 ? (width * 0.9).toDouble() : 400.0;
+
+
+    return Scaffold(
+      backgroundColor: Colors.grey[200],
+      body: Center(
+        child: SingleChildScrollView(
+          child: Container(
+            width: formWidth,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: const [
+                BoxShadow(color: Colors.black12, blurRadius: 10),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  "Create Account",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 30),
+
+                TextField(
+                  controller: emailCtrl,
+                  decoration: InputDecoration(
+                    labelText: "Email",
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 15),
+
+                TextField(
+                  controller: passwordCtrl,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: "Password",
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 15),
+
+                TextField(
+                  controller: confirmCtrl,
+                  obscureText: true,
+                  decoration: InputDecoration(
+                    labelText: "Confirm Password",
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 25),
+
+                SizedBox(
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      // Validation
+                      if (emailCtrl.text.isEmpty ||
+                          passwordCtrl.text.isEmpty ||
+                          confirmCtrl.text.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text("Please fill all fields")),
+                        );
+                        return;
+                      }
+
+                      if (passwordCtrl.text != confirmCtrl.text) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text("Passwords do not match")),
+                        );
+                        return;
+                      }
+
+                      // Save credentials
+                      await _saveCredentials(
+                          emailCtrl.text, passwordCtrl.text);
+
+                      // Navigate to Login screen
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => LoginScreen(
+                            username: emailCtrl.text,
+                            pin: passwordCtrl.text,
+                            skipAutoLogin: true,
+                          ),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      "Sign Up",
+                      style: TextStyle(fontSize: 18),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 15),
+
+                // Already have account? Login
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => LoginScreen(
+                          username: emailCtrl.text,
+                          pin: passwordCtrl.text,
+                          skipAutoLogin: true,
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text(
+                    "Already have an account? Login",
+                    style: TextStyle(color: Colors.blue),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
