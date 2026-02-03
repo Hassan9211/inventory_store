@@ -1,21 +1,14 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:inventory_store/screens/signup_screen';
+import 'package:inventory_store/screens/signup_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  final String username;
-  final String pin;
   final bool skipAutoLogin; // to prevent auto-login after signup
 
-  const LoginScreen({
-    super.key,
-    required this.username,
-    required this.pin,
-    this.skipAutoLogin = false,
-  });
+  const LoginScreen({super.key, this.skipAutoLogin = false});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -35,12 +28,12 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _checkAutoLogin() async {
     final prefs = await SharedPreferences.getInstance();
     final savedUser = prefs.getString('username');
-    final savedPin = prefs.getString('pin');
+    final savedPassword = prefs.getString('password') ?? prefs.getString('pin');
 
     if (savedUser != null &&
-        savedPin != null &&
+        savedPassword != null &&
         savedUser.isNotEmpty &&
-        savedPin.isNotEmpty) {
+        savedPassword.isNotEmpty) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => HomeScreen()),
@@ -96,7 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: passwordCtrl,
                   obscureText: hidePassword,
                   decoration: InputDecoration(
-                    labelText: "PIN",
+                    labelText: "Password",
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -128,25 +121,30 @@ class _LoginScreenState extends State<LoginScreen> {
                       if (userCtrl.text.isEmpty || passwordCtrl.text.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text("Please enter Email & PIN"),
+                            content: Text("Please enter Email & Password"),
                           ),
                         );
                         return;
                       }
 
-                      if (userCtrl.text == widget.username &&
-                          passwordCtrl.text == widget.pin) {
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.setString('username', userCtrl.text);
-                        await prefs.setString('pin', passwordCtrl.text);
+                      final prefs = await SharedPreferences.getInstance();
+                      final savedUser = prefs.getString('username') ?? '';
+                      final savedPassword =
+                          prefs.getString('password') ??
+                          prefs.getString('pin') ??
+                          '';
 
+                      if (userCtrl.text == savedUser &&
+                          passwordCtrl.text == savedPassword) {
                         Navigator.pushReplacement(
                           context,
                           MaterialPageRoute(builder: (_) => HomeScreen()),
                         );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Wrong Email or PIN")),
+                          const SnackBar(
+                            content: Text("Wrong Email or password"),
+                          ),
                         );
                       }
                     },
