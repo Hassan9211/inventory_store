@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:inventory_store/services/auth_service.dart';
+import 'package:inventory_store/services/storage_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -212,6 +213,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _showStorageInfoDialog() async {
+    final info = await StorageService.debugStorageInfo();
+    final text = info.entries.map((e) => '${e.key}: ${e.value}').join('\n');
+
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          title: const Text('Storage Info'),
+          content: SingleChildScrollView(
+            child: SelectableText(text),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -261,6 +287,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               leading: const Icon(Icons.help_outline),
               title: Text(_text('Help', 'مدد')),
               onTap: _showHelpDialog,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.storage_outlined),
+              title: const Text('Storage Info'),
+              subtitle: const Text('See exact runtime save location'),
+              onTap: _showStorageInfoDialog,
             ),
           ),
           const SizedBox(height: 10),

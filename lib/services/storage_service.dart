@@ -234,6 +234,37 @@ class StorageService {
     }
   }
 
+  static Future<String> fruitsPath() async {
+    if (kIsWeb) return 'web_shared_preferences';
+
+    try {
+      final file = await _getFile();
+      return file.path;
+    } on UnsupportedError {
+      return 'shared_preferences_fallback';
+    }
+  }
+
+  static Future<Map<String, String>> debugStorageInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userEmail =
+        prefs.getString('current_user_email') ?? prefs.getString('username') ?? '';
+    final userKey = await _getCurrentUserKey();
+
+    final info = <String, String>{
+      'platform': kIsWeb ? 'web' : Platform.operatingSystem,
+      'current_user_email': userEmail,
+      'user_key': userKey,
+      'fruits_path': await fruitsPath(),
+      'backup_path': await backupPath(),
+      'fruits_prefs_key': await _fruitsPrefsKey(),
+      'backup_prefs_key': await _backupPrefsKey(),
+      'is_logged_in': (prefs.getBool('is_logged_in') ?? false).toString(),
+    };
+
+    return info;
+  }
+
   // RESTORE
   static Future<List<Fruit>> restore() async {
     try {
