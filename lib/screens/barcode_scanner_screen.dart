@@ -11,7 +11,9 @@ class BarcodeScannerScreen extends StatefulWidget {
 }
 
 class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
-  final MobileScannerController _controller = MobileScannerController();
+  final MobileScannerController _controller = MobileScannerController(
+    formats: const [BarcodeFormat.qrCode],
+  );
   bool _isHandlingResult = false;
 
   @override
@@ -24,7 +26,14 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
     if (_isHandlingResult) return;
 
     if (capture.barcodes.isEmpty) return;
-    final code = capture.barcodes.first.rawValue?.trim();
+    Barcode? qr;
+    for (final item in capture.barcodes) {
+      if (item.format == BarcodeFormat.qrCode) {
+        qr = item;
+        break;
+      }
+    }
+    final code = qr?.rawValue?.trim();
     if (code == null || code.isEmpty) return;
 
     _isHandlingResult = true;
@@ -36,7 +45,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scan Barcode'),
+        title: const Text('Scan QR Code'),
         actions: [
           IconButton(
             icon: const Icon(Icons.flash_on),
@@ -67,7 +76,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
             child: Padding(
               padding: EdgeInsets.all(16),
               child: Text(
-                'Align barcode inside the box',
+                'Align QR code inside the box',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,

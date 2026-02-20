@@ -7,6 +7,7 @@ import '../models/cart_item.dart';
 import '../services/storage_service.dart';
 import '../widgets/app_router_widget.dart';
 import 'barcode_scanner_screen.dart';
+import 'qr_labels_screen.dart';
 
 class AddFruitDialog extends StatefulWidget {
   final Function(String, int, int, String) onAdd;
@@ -60,7 +61,7 @@ class _AddFruitDialogState extends State<AddFruitDialog> {
           TextField(
             controller: barcodeController,
             decoration: const InputDecoration(
-              labelText: "Barcode",
+              labelText: "QR Code",
               prefixIcon: Icon(Icons.qr_code_2),
             ),
           ),
@@ -171,7 +172,7 @@ class _EditFruitDialogState extends State<EditFruitDialog> {
           TextField(
             controller: barcodeController,
             decoration: const InputDecoration(
-              labelText: "Barcode",
+              labelText: "QR Code",
               prefixIcon: Icon(Icons.qr_code_2),
             ),
           ),
@@ -392,18 +393,32 @@ class _HomeScreenState extends State<HomeScreen> {
     final scannedCode = await Get.to<String>(() => const BarcodeScannerScreen());
     if (scannedCode == null || scannedCode.trim().isEmpty) return;
 
-    final normalizedCode = scannedCode.trim().toLowerCase();
+    final rawCode = scannedCode.trim();
+    final normalizedCode = rawCode.toLowerCase();
     Fruit? matchedFruit;
-    for (final fruit in fruits) {
-      if (fruit.barcode.trim().toLowerCase() == normalizedCode) {
-        matchedFruit = fruit;
-        break;
+
+    if (normalizedCode.startsWith(Fruit.qrPrefix)) {
+      final scannedId = rawCode.substring(Fruit.qrPrefix.length);
+      for (final fruit in fruits) {
+        if (fruit.id == scannedId) {
+          matchedFruit = fruit;
+          break;
+        }
+      }
+    }
+
+    if (matchedFruit == null) {
+      for (final fruit in fruits) {
+        if (fruit.barcode.trim().toLowerCase() == normalizedCode) {
+          matchedFruit = fruit;
+          break;
+        }
       }
     }
 
     if (matchedFruit == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("No item found for barcode: $scannedCode")),
+        SnackBar(content: Text("No item found for QR code: $scannedCode")),
       );
       return;
     }
@@ -431,7 +446,14 @@ class _HomeScreenState extends State<HomeScreen> {
               IconButton(
                 icon: const Icon(Icons.qr_code_scanner),
                 onPressed: scanAndAddToCart,
-                tooltip: 'Scan barcode',
+                tooltip: 'Scan QR code',
+              ),
+              IconButton(
+                icon: const Icon(Icons.qr_code_2),
+                onPressed: () => Get.to(
+                  () => QrLabelsScreen(fruits: List<Fruit>.from(fruits)),
+                ),
+                tooltip: 'QR labels',
               ),
               IconButton(
                 icon: const Icon(Icons.shopping_cart),
@@ -640,7 +662,7 @@ class _HomeScreenState extends State<HomeScreen> {
             style: TextStyle(fontSize: isTablet ? 18 : 16),
           ),
           subtitle: Text(
-            "Rs ${f.price}\nCode: ${f.barcode}",
+            "Rs ${f.price}\nQR: ${f.barcode}",
             style: const TextStyle(color: Color(0xFF6B6B6B)),
           ),
           trailing: Row(

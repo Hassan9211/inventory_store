@@ -1,4 +1,6 @@
 class Fruit {
+  static const String qrPrefix = 'invfruit:';
+
   String id;
   String name;
   int price;
@@ -30,4 +32,6 @@ class Fruit {
       barcode: (json['barcode'] ?? json['id']).toString(),
     );
   }
+
+  String get qrPayload => '$qrPrefix$id';
 }
