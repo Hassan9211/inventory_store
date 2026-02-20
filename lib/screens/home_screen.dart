@@ -6,9 +6,10 @@ import '../models/fruit.dart';
 import '../models/cart_item.dart';
 import '../services/storage_service.dart';
 import '../widgets/app_router_widget.dart';
+import 'barcode_scanner_screen.dart';
 
 class AddFruitDialog extends StatefulWidget {
-  final Function(String, int, int) onAdd;
+  final Function(String, int, int, String) onAdd;
 
   const AddFruitDialog({required this.onAdd});
 
@@ -20,6 +21,7 @@ class _AddFruitDialogState extends State<AddFruitDialog> {
   final nameController = TextEditingController();
   final priceController = TextEditingController();
   final qtyController = TextEditingController();
+  final barcodeController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +56,14 @@ class _AddFruitDialogState extends State<AddFruitDialog> {
             ),
             keyboardType: TextInputType.number,
           ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: barcodeController,
+            decoration: const InputDecoration(
+              labelText: "Barcode",
+              prefixIcon: Icon(Icons.qr_code_2),
+            ),
+          ),
         ],
       ),
       actions: [
@@ -66,6 +76,7 @@ class _AddFruitDialogState extends State<AddFruitDialog> {
             final name = nameController.text.trim();
             final price = int.tryParse(priceController.text.trim());
             final qty = int.tryParse(qtyController.text.trim());
+            final barcode = barcodeController.text.trim();
 
             if (name.isEmpty || price == null || qty == null) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -83,7 +94,7 @@ class _AddFruitDialogState extends State<AddFruitDialog> {
               return;
             }
 
-            widget.onAdd(name, price, qty);
+            widget.onAdd(name, price, qty, barcode);
             Get.back();
           },
           child: const Text("Add"),
@@ -97,13 +108,14 @@ class _AddFruitDialogState extends State<AddFruitDialog> {
     nameController.dispose();
     priceController.dispose();
     qtyController.dispose();
+    barcodeController.dispose();
     super.dispose();
   }
 }
 
 class EditFruitDialog extends StatefulWidget {
   final Fruit fruit;
-  final Function(Fruit, int, int) onUpdate;
+  final Function(Fruit, int, int, String) onUpdate;
 
   const EditFruitDialog({required this.fruit, required this.onUpdate});
 
@@ -114,6 +126,7 @@ class EditFruitDialog extends StatefulWidget {
 class _EditFruitDialogState extends State<EditFruitDialog> {
   late TextEditingController priceController;
   late TextEditingController qtyController;
+  late TextEditingController barcodeController;
 
   @override
   void initState() {
@@ -123,6 +136,9 @@ class _EditFruitDialogState extends State<EditFruitDialog> {
     );
     qtyController = TextEditingController(
       text: widget.fruit.quantity.toString(),
+    );
+    barcodeController = TextEditingController(
+      text: widget.fruit.barcode,
     );
   }
 
@@ -151,6 +167,14 @@ class _EditFruitDialogState extends State<EditFruitDialog> {
             ),
             keyboardType: TextInputType.number,
           ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: barcodeController,
+            decoration: const InputDecoration(
+              labelText: "Barcode",
+              prefixIcon: Icon(Icons.qr_code_2),
+            ),
+          ),
         ],
       ),
       actions: [
@@ -174,6 +198,7 @@ class _EditFruitDialogState extends State<EditFruitDialog> {
               widget.fruit,
               price,
               qty,
+              barcodeController.text.trim(),
             );
             Get.back();
           },
@@ -187,6 +212,7 @@ class _EditFruitDialogState extends State<EditFruitDialog> {
   void dispose() {
     priceController.dispose();
     qtyController.dispose();
+    barcodeController.dispose();
     super.dispose();
   }
 }
@@ -220,12 +246,15 @@ class _HomeScreenState extends State<HomeScreen> {
   int get totalStock =>
       fruits.fold(0, (sum, item) => sum + item.quantity);
 
-  void addFruit(String name, int price, int qty) async {
+  void addFruit(String name, int price, int qty, String barcode) async {
     final newFruit = Fruit(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,
       price: price,
       quantity: qty,
+      barcode: barcode.isEmpty
+          ? DateTime.now().millisecondsSinceEpoch.toString()
+          : barcode,
     );
 
     fruits.add(
@@ -249,25 +278,24 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // 🛒 ADD TO CART
-  void addToCart(Fruit fruit, int qty) {
-    final index = cart.indexWhere((c) => c.fruit.id == fruit.id);
-    final existingQty = index != -1 ? cart[index].qty : 0;
-    final availableQty = fruit.quantity - existingQty;
-
-    if (qty <= 0 || qty > availableQty) {
+  void addToCart(Fruit fruit, int qty) async {
+    if (qty <= 0 || qty > fruit.quantity) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(
         SnackBar(
           content: Text(
-            availableQty > 0
-                ? "Only $availableQty left in stock"
+            fruit.quantity > 0
+                ? "Only ${fruit.quantity} left in stock"
                 : "No more stock available",
           ),
         ),
       );
       return;
     }
+
+    fruit.quantity -= qty;
+    final index = cart.indexWhere((c) => c.fruit.id == fruit.id);
 
     if (index != -1) {
       cart[index].qty += qty;
@@ -280,6 +308,12 @@ class _HomeScreenState extends State<HomeScreen> {
     ).showSnackBar(SnackBar(content: Text("${fruit.name} added to cart")));
 
     setState(() {});
+
+    try {
+      await StorageService.saveFruits(fruits);
+    } catch (e) {
+      debugPrint("Add-to-cart save error: $e");
+    }
   }
 
   // 🧾 CHECKOUT
@@ -294,16 +328,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final billItems = cart
         .map((e) => CartItem(fruit: e.fruit, qty: e.qty))
         .toList();
-
-    for (var item in billItems) {
-      if (item.qty > item.fruit.quantity) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Not enough stock for ${item.fruit.name}")),
-        );
-        return;
-      }
-      item.fruit.quantity -= item.qty;
-    }
 
     bool saveFailed = false;
     try {
@@ -346,9 +370,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ✏️ UPDATE FRUIT
-  void updateFruit(Fruit fruit, int price, int qty) async {
+  void updateFruit(Fruit fruit, int price, int qty, String barcode) async {
     fruit.price = price;
     fruit.quantity = qty;
+    fruit.barcode = barcode.isEmpty ? fruit.id : barcode;
     setState(() {});
 
     try {
@@ -361,6 +386,29 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       debugPrint("Update save error: $e");
     }
+  }
+
+  Future<void> scanAndAddToCart() async {
+    final scannedCode = await Get.to<String>(() => const BarcodeScannerScreen());
+    if (scannedCode == null || scannedCode.trim().isEmpty) return;
+
+    final normalizedCode = scannedCode.trim().toLowerCase();
+    Fruit? matchedFruit;
+    for (final fruit in fruits) {
+      if (fruit.barcode.trim().toLowerCase() == normalizedCode) {
+        matchedFruit = fruit;
+        break;
+      }
+    }
+
+    if (matchedFruit == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("No item found for barcode: $scannedCode")),
+      );
+      return;
+    }
+
+    addToCart(matchedFruit, 1);
   }
 
   @override
@@ -380,6 +428,11 @@ class _HomeScreenState extends State<HomeScreen> {
             centerTitle: true,
             title: const Text("Fruit Inventory"),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.qr_code_scanner),
+                onPressed: scanAndAddToCart,
+                tooltip: 'Scan barcode',
+              ),
               IconButton(
                 icon: const Icon(Icons.shopping_cart),
                 onPressed: checkout,
@@ -587,7 +640,7 @@ class _HomeScreenState extends State<HomeScreen> {
             style: TextStyle(fontSize: isTablet ? 18 : 16),
           ),
           subtitle: Text(
-            "Rs ${f.price}",
+            "Rs ${f.price}\nCode: ${f.barcode}",
             style: const TextStyle(color: Color(0xFF6B6B6B)),
           ),
           trailing: Row(

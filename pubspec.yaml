@@ -36,6 +36,7 @@ dependencies:
   pdf: ^3.10.6
   printing: ^5.11.0
   shared_preferences: ^2.1.1
+  mobile_scanner: ^5.2.3
  
 
 

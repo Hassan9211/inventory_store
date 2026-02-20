@@ -48,10 +48,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _logout() async {
+    final email = await AuthService.currentUserEmail();
+    final emailLabel = email.isEmpty ? 'unknown' : email;
+
+    final shouldLogout = await Get.dialog<bool>(
+      AlertDialog(
+        title: const Text('Logout'),
+        content: Text('You are logging out from:\n$emailLabel'),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Get.back(result: true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+      barrierDismissible: true,
+    );
+
+    if (shouldLogout != true) return;
+
     await AuthService.endSession();
     Get.offAllNamed(
       '/login',
       arguments: {'skipAutoLogin': true},
+    );
+    Get.snackbar(
+      'Logged Out',
+      'Email: $emailLabel',
+      snackPosition: SnackPosition.BOTTOM,
     );
   }
 
