@@ -2,7 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:inventory_store/services/auth_service.dart';
+import 'package:inventory_store/widgets/app_router_widget.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -20,14 +21,17 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _goNext() async {
     await Future.delayed(const Duration(seconds: 2));
-    final prefs = await SharedPreferences.getInstance();
-    final savedUser = prefs.getString('username') ?? '';
-    final savedpassword = prefs.getString('password') ?? '';
+    final hasAccounts = await AuthService.hasAnyAccount();
+    if (!hasAccounts) {
+      Get.offAllNamed(AppRoutes.signup);
+      return;
+    }
 
-    if (savedUser.isNotEmpty && savedpassword.isNotEmpty) {
-      Get.offAllNamed('/home');
+    final shouldAutoLogin = await AuthService.canAutoLogin();
+    if (shouldAutoLogin) {
+      Get.offAllNamed(AppRoutes.home);
     } else {
-      Get.offAllNamed('/signup');
+      Get.offAllNamed(AppRoutes.login);
     }
   }
 

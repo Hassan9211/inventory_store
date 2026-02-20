@@ -1,21 +1,30 @@
-// ignore_for_file: deprecated_member_use
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'login_screen.dart';
+import 'package:inventory_store/services/auth_service.dart';
+import 'package:inventory_store/widgets/app_router_widget.dart';
 
-class SignUpPage extends StatelessWidget {
-  SignUpPage({super.key});
+class SignUpPage extends StatefulWidget {
+  const SignUpPage({super.key});
 
+  @override
+  State<SignUpPage> createState() => _SignUpPageState();
+}
+
+class _SignUpPageState extends State<SignUpPage> {
   final emailCtrl = TextEditingController();
   final passwordCtrl = TextEditingController();
   final confirmCtrl = TextEditingController();
 
-  Future<void> _saveCredentials(String email, String password) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('username', email);
-    await prefs.setString('password', password);
+  Future<bool> _saveCredentials(String email, String password) async {
+    return AuthService.createAccount(email, password);
+  }
+
+  @override
+  void dispose() {
+    emailCtrl.dispose();
+    passwordCtrl.dispose();
+    confirmCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -26,8 +35,8 @@ class SignUpPage extends StatelessWidget {
     final formWidth = isDesktop
         ? 520.0
         : isTablet
-        ? 420.0
-        : (width * 0.92).toDouble();
+            ? 420.0
+            : (width * 0.92).toDouble();
 
     return Scaffold(
       body: SafeArea(
@@ -49,7 +58,7 @@ class SignUpPage extends StatelessWidget {
                 width: 200,
                 height: 200,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFBEE3CB).withOpacity(0.4),
+                  color: const Color(0xFFBEE3CB).withValues(alpha: 0.4),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -165,12 +174,24 @@ class SignUpPage extends StatelessWidget {
                               return;
                             }
 
-                            await _saveCredentials(
+                            final created = await _saveCredentials(
                               emailCtrl.text,
                               passwordCtrl.text,
                             );
+                            if (!mounted) return;
+                            if (!created) {
+                              Get.snackbar(
+                                "Account Exists",
+                                "Account already exists. Please login.",
+                                snackPosition: SnackPosition.BOTTOM,
+                              );
+                              return;
+                            }
 
-                            Get.off(() => const LoginScreen(skipAutoLogin: true));
+                            Get.offNamed(
+                              AppRoutes.login,
+                              arguments: {'skipAutoLogin': true},
+                            );
                           },
                           child: const Text(
                             "Create Account",
@@ -181,8 +202,9 @@ class SignUpPage extends StatelessWidget {
                       const SizedBox(height: 14),
                       TextButton(
                         onPressed: () {
-                          Get.off(
-                            () => const LoginScreen(skipAutoLogin: true),
+                          Get.offNamed(
+                            AppRoutes.login,
+                            arguments: {'skipAutoLogin': true},
                           );
                         },
                         child: const Text("Already have an account? Login"),

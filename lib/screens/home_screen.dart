@@ -5,7 +5,7 @@ import 'package:get/get.dart';
 import '../models/fruit.dart';
 import '../models/cart_item.dart';
 import '../services/storage_service.dart';
-import 'bill_screen.dart';
+import '../widgets/app_router_widget.dart';
 
 class AddFruitDialog extends StatefulWidget {
   final Function(String, int, int) onAdd;
@@ -58,7 +58,7 @@ class _AddFruitDialogState extends State<AddFruitDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Get.back(),
           child: const Text("Cancel"),
         ),
         TextButton(
@@ -84,7 +84,7 @@ class _AddFruitDialogState extends State<AddFruitDialog> {
             }
 
             widget.onAdd(name, price, qty);
-            Navigator.pop(context);
+            Get.back();
           },
           child: const Text("Add"),
         ),
@@ -155,17 +155,27 @@ class _EditFruitDialogState extends State<EditFruitDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Get.back(),
           child: const Text("Cancel"),
         ),
         TextButton(
           onPressed: () {
+            final price = int.tryParse(priceController.text.trim());
+            final qty = int.tryParse(qtyController.text.trim());
+
+            if (price == null || qty == null || price <= 0 || qty <= 0) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Please enter valid values")),
+              );
+              return;
+            }
+
             widget.onUpdate(
               widget.fruit,
-              int.parse(priceController.text),
-              int.parse(qtyController.text),
+              price,
+              qty,
             );
-            Navigator.pop(context);
+            Get.back();
           },
           child: const Text("Update"),
         ),
@@ -200,8 +210,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void load() async {
     fruits = await StorageService.loadFruits();
-    filtered = fruits;
-    setState(() {});
+    filtered = List<Fruit>.from(fruits);
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   int get totalProducts => fruits.length;
@@ -209,29 +221,53 @@ class _HomeScreenState extends State<HomeScreen> {
       fruits.fold(0, (sum, item) => sum + item.quantity);
 
   void addFruit(String name, int price, int qty) async {
-    fruits.add(
-      Fruit(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: name,
-        price: price,
-        quantity: qty,
-      ),
+    final newFruit = Fruit(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: name,
+      price: price,
+      quantity: qty,
     );
-    await StorageService.saveFruits(fruits);
-    filtered = fruits;
+
+    fruits.add(
+      newFruit,
+    );
+    filtered = List<Fruit>.from(fruits);
     setState(() {});
+
+    try {
+      await StorageService.saveFruits(fruits);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Fruit added, but save failed on this device"),
+          ),
+        );
+      }
+      debugPrint("Save fruits error: $e");
+    }
   }
 
   // 🛒 ADD TO CART
   void addToCart(Fruit fruit, int qty) {
-    if (qty <= 0 || qty > fruit.quantity) {
+    final index = cart.indexWhere((c) => c.fruit.id == fruit.id);
+    final existingQty = index != -1 ? cart[index].qty : 0;
+    final availableQty = fruit.quantity - existingQty;
+
+    if (qty <= 0 || qty > availableQty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("Invalid quantity")));
+      ).showSnackBar(
+        SnackBar(
+          content: Text(
+            availableQty > 0
+                ? "Only $availableQty left in stock"
+                : "No more stock available",
+          ),
+        ),
+      );
       return;
     }
-
-    final index = cart.indexWhere((c) => c.fruit.id == fruit.id);
 
     if (index != -1) {
       cart[index].qty += qty;
@@ -260,12 +296,32 @@ class _HomeScreenState extends State<HomeScreen> {
         .toList();
 
     for (var item in billItems) {
+      if (item.qty > item.fruit.quantity) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Not enough stock for ${item.fruit.name}")),
+        );
+        return;
+      }
       item.fruit.quantity -= item.qty;
     }
 
-    await StorageService.saveFruits(fruits);
+    bool saveFailed = false;
+    try {
+      await StorageService.saveFruits(fruits);
+    } catch (e) {
+      saveFailed = true;
+      debugPrint("Checkout save error: $e");
+    }
 
-    await Get.to(() => BillScreen(cart: billItems));
+    await Get.toNamed(AppRoutes.bill, arguments: billItems);
+
+    if (saveFailed && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Bill opened, but stock changes could not be saved"),
+        ),
+      );
+    }
 
     cart.clear();
     setState(() {});
@@ -274,17 +330,37 @@ class _HomeScreenState extends State<HomeScreen> {
   // ❌ DELETE FRUIT
   void deleteFruit(Fruit f) async {
     fruits.removeWhere((e) => e.id == f.id);
-    filtered = fruits;
-    await StorageService.saveFruits(fruits);
+    filtered = List<Fruit>.from(fruits);
     setState(() {});
+
+    try {
+      await StorageService.saveFruits(fruits);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Delete updated in UI, but save failed")),
+        );
+      }
+      debugPrint("Delete save error: $e");
+    }
   }
 
   // ✏️ UPDATE FRUIT
   void updateFruit(Fruit fruit, int price, int qty) async {
     fruit.price = price;
     fruit.quantity = qty;
-    await StorageService.saveFruits(fruits);
     setState(() {});
+
+    try {
+      await StorageService.saveFruits(fruits);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Update applied, but save failed")),
+        );
+      }
+      debugPrint("Update save error: $e");
+    }
   }
 
   @override
@@ -312,24 +388,59 @@ class _HomeScreenState extends State<HomeScreen> {
               IconButton(
                 icon: const Icon(Icons.backup),
                 onPressed: () async {
-                  await StorageService.backup(fruits);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Backup Created")),
-                  );
+                  try {
+                    await StorageService.backup(fruits);
+                    final path = await StorageService.backupPath();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Backup Created: $path")),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Backup failed: ${e.runtimeType}")),
+                    );
+                    debugPrint("Backup error: $e");
+                  }
                 },
                 tooltip: 'Backup',
               ),
               IconButton(
                 icon: const Icon(Icons.restore),
                 onPressed: () async {
-                  fruits = await StorageService.restore();
-                  filtered = fruits;
-                  setState(() {});
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Backup Restored")),
-                  );
+                  try {
+                    final restored = await StorageService.restore();
+                    if (restored.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "Backup is empty. First create backup, then restore.",
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+
+                    fruits = restored;
+                    filtered = List<Fruit>.from(fruits);
+                    await StorageService.saveFruits(fruits);
+                    setState(() {});
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("Backup Restored (${fruits.length} items)"),
+                      ),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Restore failed")),
+                    );
+                    debugPrint("Restore error: $e");
+                  }
                 },
                 tooltip: 'Restore',
+              ),
+              IconButton(
+                icon: const Icon(Icons.settings),
+                onPressed: () => Get.toNamed(AppRoutes.settings),
+                tooltip: 'Settings',
               ),
             ],
           ),
