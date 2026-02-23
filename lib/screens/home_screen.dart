@@ -246,6 +246,10 @@ class _HomeScreenState extends State<HomeScreen> {
   int get totalProducts => fruits.length;
   int get totalStock =>
       fruits.fold(0, (sum, item) => sum + item.quantity);
+  int get totalCartItems =>
+      cart.fold(0, (sum, item) => sum + item.qty);
+  int get cartGrandTotal =>
+      cart.fold(0, (sum, item) => sum + item.total);
 
   void addFruit(String name, int price, int qty, String barcode) async {
     final newFruit = Fruit(
@@ -318,6 +322,219 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // 🧾 CHECKOUT
+  Future<void> removeFromCart(Fruit fruit, {int qty = 1}) async {
+    final index = cart.indexWhere((c) => c.fruit.id == fruit.id);
+    if (index == -1) return;
+
+    final removedQty = qty > cart[index].qty ? cart[index].qty : qty;
+    if (removedQty <= 0) return;
+
+    cart[index].qty -= removedQty;
+    fruit.quantity += removedQty;
+
+    if (cart[index].qty <= 0) {
+      cart.removeAt(index);
+    }
+
+    setState(() {});
+
+    try {
+      await StorageService.saveFruits(fruits);
+    } catch (e) {
+      debugPrint("Remove-from-cart save error: $e");
+    }
+  }
+
+  Future<void> clearCart() async {
+    if (cart.isEmpty) return;
+
+    for (final item in cart) {
+      item.fruit.quantity += item.qty;
+    }
+    cart.clear();
+
+    setState(() {});
+
+    try {
+      await StorageService.saveFruits(fruits);
+    } catch (e) {
+      debugPrint("Clear-cart save error: $e");
+    }
+  }
+
+  Future<void> openCartSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, modalSetState) {
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  16,
+                  16,
+                  16 + MediaQuery.of(sheetContext).viewInsets.bottom,
+                ),
+                child: SizedBox(
+                  height: MediaQuery.of(sheetContext).size.height * 0.65,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              "Manage Cart",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (cart.isEmpty)
+                        const Expanded(
+                          child: Center(
+                            child: Text(
+                              "Cart is empty",
+                              style: TextStyle(color: Color(0xFF6B6B6B)),
+                            ),
+                          ),
+                        ),
+                      if (cart.isNotEmpty)
+                        Expanded(
+                          child: ListView.separated(
+                            itemCount: cart.length,
+                            separatorBuilder: (_, index) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (_, i) {
+                              final item = cart[i];
+                              return Card(
+                                child: ListTile(
+                                  title: Text(item.fruit.name),
+                                  subtitle: Text(
+                                    "Rs ${item.fruit.price} x ${item.qty}",
+                                    style: const TextStyle(
+                                      color: Color(0xFF6B6B6B),
+                                    ),
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.remove_circle_outline,
+                                        ),
+                                        tooltip: "Remove 1",
+                                        onPressed: () async {
+                                          await removeFromCart(item.fruit);
+                                          modalSetState(() {});
+                                        },
+                                      ),
+                                      Text(
+                                        "${item.qty}",
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                        ),
+                                        tooltip: "Remove item",
+                                        onPressed: () async {
+                                          await removeFromCart(
+                                            item.fruit,
+                                            qty: item.qty,
+                                          );
+                                          modalSetState(() {});
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      if (cart.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEAF4EC),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFD8E8DD)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                "Items: $totalCartItems",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                "Total: Rs $cartGrandTotal",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1F7A4D),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () async {
+                                  await clearCart();
+                                  modalSetState(() {});
+                                },
+                                icon: const Icon(Icons.clear_all),
+                                label: const Text("Clear Cart"),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () async {
+                                  Navigator.of(sheetContext).pop();
+                                  await checkout();
+                                },
+                                icon: const Icon(Icons.receipt_long),
+                                label: const Text("Checkout"),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> checkout() async {
     if (cart.isEmpty) {
       ScaffoldMessenger.of(
@@ -456,9 +673,39 @@ class _HomeScreenState extends State<HomeScreen> {
                 tooltip: 'QR labels',
               ),
               IconButton(
-                icon: const Icon(Icons.shopping_cart),
-                onPressed: checkout,
-                tooltip: 'Checkout',
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.shopping_cart),
+                    if (totalCartItems > 0)
+                      Positioned(
+                        right: -6,
+                        top: -6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD64545),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          constraints: const BoxConstraints(minWidth: 16),
+                          child: Text(
+                            "$totalCartItems",
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                onPressed: openCartSheet,
+                tooltip: 'Cart',
               ),
               IconButton(
                 icon: const Icon(Icons.backup),
