@@ -68,10 +68,7 @@ class _AddFruitDialogState extends State<AddFruitDialog> {
         ],
       ),
       actions: [
-        TextButton(
-          onPressed: () => Get.back(),
-          child: const Text("Cancel"),
-        ),
+        TextButton(onPressed: () => Get.back(), child: const Text("Cancel")),
         TextButton(
           onPressed: () {
             final name = nameController.text.trim();
@@ -138,9 +135,7 @@ class _EditFruitDialogState extends State<EditFruitDialog> {
     qtyController = TextEditingController(
       text: widget.fruit.quantity.toString(),
     );
-    barcodeController = TextEditingController(
-      text: widget.fruit.barcode,
-    );
+    barcodeController = TextEditingController(text: widget.fruit.barcode);
   }
 
   @override
@@ -179,10 +174,7 @@ class _EditFruitDialogState extends State<EditFruitDialog> {
         ],
       ),
       actions: [
-        TextButton(
-          onPressed: () => Get.back(),
-          child: const Text("Cancel"),
-        ),
+        TextButton(onPressed: () => Get.back(), child: const Text("Cancel")),
         TextButton(
           onPressed: () {
             final price = int.tryParse(priceController.text.trim());
@@ -244,12 +236,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   int get totalProducts => fruits.length;
-  int get totalStock =>
-      fruits.fold(0, (sum, item) => sum + item.quantity);
-  int get totalCartItems =>
-      cart.fold(0, (sum, item) => sum + item.qty);
-  int get cartGrandTotal =>
-      cart.fold(0, (sum, item) => sum + item.total);
+  int get totalStock => fruits.fold(0, (sum, item) => sum + item.quantity);
+  int get totalCartItems => cart.fold(0, (sum, item) => sum + item.qty);
+  int get cartGrandTotal => cart.fold(0, (sum, item) => sum + item.total);
 
   void addFruit(String name, int price, int qty, String barcode) async {
     final newFruit = Fruit(
@@ -262,9 +251,7 @@ class _HomeScreenState extends State<HomeScreen> {
           : barcode,
     );
 
-    fruits.add(
-      newFruit,
-    );
+    fruits.add(newFruit);
     filtered = List<Fruit>.from(fruits);
     setState(() {});
 
@@ -285,9 +272,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // 🛒 ADD TO CART
   void addToCart(Fruit fruit, int qty) async {
     if (qty <= 0 || qty > fruit.quantity) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             fruit.quantity > 0
@@ -360,6 +345,47 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       debugPrint("Clear-cart save error: $e");
     }
+  }
+
+  bool _isFruitInCart(Fruit fruit) {
+    return cart.any((item) => item.fruit.id == fruit.id);
+  }
+
+  Future<bool> _confirmDeleteFruit(Fruit fruit) async {
+    if (_isFruitInCart(fruit)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "${fruit.name} is in cart. Remove it from cart before deleting.",
+            ),
+          ),
+        );
+      }
+      return false;
+    }
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          title: const Text("Delete Fruit"),
+          content: Text("Are you sure you want to delete ${fruit.name}?"),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(result: false),
+              child: const Text("Cancel"),
+            ),
+            ElevatedButton(
+              onPressed: () => Get.back(result: true),
+              child: const Text("Delete"),
+            ),
+          ],
+        );
+      },
+    );
+
+    return shouldDelete ?? false;
   }
 
   Future<void> openCartSheet() async {
@@ -449,9 +475,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                       ),
                                       IconButton(
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                        ),
+                                        icon: const Icon(Icons.delete_outline),
                                         tooltip: "Remove item",
                                         onPressed: () async {
                                           await removeFromCart(
@@ -571,6 +595,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ❌ DELETE FRUIT
   void deleteFruit(Fruit f) async {
+    if (_isFruitInCart(f)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "${f.name} is in cart. Remove it from cart before deleting.",
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
     fruits.removeWhere((e) => e.id == f.id);
     filtered = List<Fruit>.from(fruits);
     setState(() {});
@@ -580,7 +617,9 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Delete updated in UI, but save failed")),
+          const SnackBar(
+            content: Text("Delete updated in UI, but save failed"),
+          ),
         );
       }
       debugPrint("Delete save error: $e");
@@ -607,7 +646,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> scanAndAddToCart() async {
-    final scannedCode = await Get.to<String>(() => const BarcodeScannerScreen());
+    final scannedCode = await Get.to<String>(
+      () => const BarcodeScannerScreen(),
+    );
     if (scannedCode == null || scannedCode.trim().isEmpty) return;
 
     final rawCode = scannedCode.trim();
@@ -652,8 +693,8 @@ class _HomeScreenState extends State<HomeScreen> {
         final contentWidth = isDesktop
             ? 960.0
             : isTablet
-                ? 720.0
-                : double.infinity;
+            ? 720.0
+            : double.infinity;
 
         return Scaffold(
           appBar: AppBar(
@@ -718,7 +759,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Backup failed: ${e.runtimeType}")),
+                      SnackBar(
+                        content: Text("Backup failed: ${e.runtimeType}"),
+                      ),
                     );
                     debugPrint("Backup error: $e");
                   }
@@ -747,7 +790,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     setState(() {});
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text("Backup Restored (${fruits.length} items)"),
+                        content: Text(
+                          "Backup Restored (${fruits.length} items)",
+                        ),
                       ),
                     );
                   } catch (e) {
@@ -791,9 +836,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       onChanged: (value) {
                         query = value.toLowerCase();
                         filtered = fruits
-                            .where(
-                              (f) => f.name.toLowerCase().contains(query),
-                            )
+                            .where((f) => f.name.toLowerCase().contains(query))
                             .toList();
                         setState(() {});
                       },
@@ -805,11 +848,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               itemCount: filtered.length,
                               gridDelegate:
                                   const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                childAspectRatio: 3.2,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                              ),
+                                    crossAxisCount: 2,
+                                    childAspectRatio: 3.2,
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                  ),
                               itemBuilder: (_, i) => _fruitCard(
                                 filtered[i],
                                 isTablet: isTablet || isDesktop,
@@ -817,10 +860,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             )
                           : ListView.builder(
                               itemCount: filtered.length,
-                              itemBuilder: (_, i) => _fruitCard(
-                                filtered[i],
-                                isTablet: isTablet,
-                              ),
+                              itemBuilder: (_, i) =>
+                                  _fruitCard(filtered[i], isTablet: isTablet),
                             ),
                     ),
                   ],
@@ -897,6 +938,7 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.only(right: 20),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
+      confirmDismiss: (_) => _confirmDeleteFruit(f),
       onDismissed: (_) => deleteFruit(f),
       child: Card(
         child: ListTile(
@@ -904,10 +946,7 @@ class _HomeScreenState extends State<HomeScreen> {
             horizontal: 16,
             vertical: 6,
           ),
-          title: Text(
-            f.name,
-            style: TextStyle(fontSize: isTablet ? 18 : 16),
-          ),
+          title: Text(f.name, style: TextStyle(fontSize: isTablet ? 18 : 16)),
           subtitle: Text(
             "Rs ${f.price}\nQR: ${f.barcode}",
             style: const TextStyle(color: Color(0xFF6B6B6B)),
@@ -939,10 +978,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           onTap: () => showDialog(
             context: context,
-            builder: (_) => EditFruitDialog(
-              fruit: f,
-              onUpdate: updateFruit,
-            ),
+            builder: (_) => EditFruitDialog(fruit: f, onUpdate: updateFruit),
           ),
         ),
       ),

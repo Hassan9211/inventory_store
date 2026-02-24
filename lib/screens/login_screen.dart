@@ -2,6 +2,7 @@
 
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:inventory_store/services/auth_service.dart';
@@ -53,8 +54,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final formWidth = isDesktop
         ? 520.0
         : isTablet
-            ? 420.0
-            : (width * 0.92).toDouble();
+        ? 420.0
+        : (width * 0.92).toDouble();
 
     return Scaffold(
       body: SafeArea(
@@ -183,21 +184,26 @@ class _LoginScreenState extends State<LoginScreen> {
                         height: 52,
                         child: ElevatedButton(
                           onPressed: () async {
-                            if (userCtrl.text.isEmpty || passwordCtrl.text.isEmpty) {
+                            if (userCtrl.text.isEmpty ||
+                                passwordCtrl.text.isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text("Please enter Email & Password"),
+                                  content: Text(
+                                    "Please enter Email & Password",
+                                  ),
                                 ),
                               );
                               return;
                             }
 
-                            final enteredUser =
-                                AuthService.normalizeEmail(userCtrl.text);
-                            final isValid = await AuthService.validateCredentials(
-                              enteredUser,
-                              passwordCtrl.text,
+                            final enteredUser = AuthService.normalizeEmail(
+                              userCtrl.text,
                             );
+                            final isValid =
+                                await AuthService.validateCredentials(
+                                  enteredUser,
+                                  passwordCtrl.text,
+                                );
 
                             if (isValid) {
                               await AuthService.startSession(enteredUser);
@@ -283,20 +289,23 @@ class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
 
     final otp = (1000 + Random().nextInt(9000)).toString();
 
-    // Demo app: show OTP in-app instead of sending email service.
-    Get.snackbar(
-      "OTP Sent",
-      "Your 4-digit OTP is $otp",
-      snackPosition: SnackPosition.BOTTOM,
-      duration: const Duration(seconds: 4),
-    );
+    if (kDebugMode) {
+      // Debug-only helper for local testing without an OTP provider.
+      Get.snackbar(
+        "OTP Generated (Debug)",
+        "Use OTP: $otp",
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 4),
+      );
+    } else {
+      Get.snackbar(
+        "OTP Sent",
+        "Check your registered recovery channel.",
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
 
-    Get.to(
-      () => ForgotPasswordOtpScreen(
-        email: email,
-        expectedOtp: otp,
-      ),
-    );
+    Get.to(() => ForgotPasswordOtpScreen(email: email, expectedOtp: otp));
   }
 
   @override
@@ -359,7 +368,8 @@ class ForgotPasswordOtpScreen extends StatefulWidget {
   });
 
   @override
-  State<ForgotPasswordOtpScreen> createState() => _ForgotPasswordOtpScreenState();
+  State<ForgotPasswordOtpScreen> createState() =>
+      _ForgotPasswordOtpScreenState();
 }
 
 class _ForgotPasswordOtpScreenState extends State<ForgotPasswordOtpScreen> {
@@ -391,22 +401,7 @@ class _ForgotPasswordOtpScreenState extends State<ForgotPasswordOtpScreen> {
       return;
     }
 
-    final updated = await AuthService.updatePassword(widget.email, enteredOtp);
-    if (!updated) {
-      Get.snackbar(
-        "Failed",
-        "Could not update password.",
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return;
-    }
-
-    await AuthService.endSession();
-    Get.offAll(
-      () => PasswordResetSuccessScreen(
-        email: widget.email,
-      ),
-    );
+    Get.off(() => SetNewPasswordScreen(email: widget.email));
   }
 
   @override
@@ -467,6 +462,126 @@ class _ForgotPasswordOtpScreenState extends State<ForgotPasswordOtpScreen> {
   }
 }
 
+class SetNewPasswordScreen extends StatefulWidget {
+  final String email;
+
+  const SetNewPasswordScreen({super.key, required this.email});
+
+  @override
+  State<SetNewPasswordScreen> createState() => _SetNewPasswordScreenState();
+}
+
+class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
+  final newPasswordCtrl = TextEditingController();
+  final confirmPasswordCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    newPasswordCtrl.dispose();
+    confirmPasswordCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveNewPassword() async {
+    final newPassword = newPasswordCtrl.text.trim();
+    final confirmPassword = confirmPasswordCtrl.text.trim();
+
+    if (newPassword.length < 4) {
+      Get.snackbar(
+        "Weak Password",
+        "Password must be at least 4 characters.",
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    if (newPassword != confirmPassword) {
+      Get.snackbar(
+        "Mismatch",
+        "New password and confirmation do not match.",
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    final updated = await AuthService.updatePassword(widget.email, newPassword);
+    if (!updated) {
+      Get.snackbar(
+        "Failed",
+        "Could not update password.",
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    await AuthService.endSession();
+    Get.offAll(() => PasswordResetSuccessScreen(email: widget.email));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Set New Password")),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(
+                  Icons.lock_reset,
+                  size: 64,
+                  color: Color(0xFF1F7A4D),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  "Create a new password",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  widget.email,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFF6B6B6B)),
+                ),
+                const SizedBox(height: 22),
+                TextField(
+                  controller: newPasswordCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: "New Password",
+                    prefixIcon: Icon(Icons.lock_outline),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: confirmPasswordCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: "Confirm New Password",
+                    prefixIcon: Icon(Icons.check_circle_outline),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _saveNewPassword,
+                    child: const Text("Save Password"),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class PasswordResetSuccessScreen extends StatelessWidget {
   final String email;
 
@@ -496,7 +611,7 @@ class PasswordResetSuccessScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  "Email: $email\nUse your OTP as the new password.",
+                  "Email: $email\nPlease login with your new password.",
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Color(0xFF6B6B6B)),
                 ),

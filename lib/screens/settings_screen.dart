@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:inventory_store/services/auth_service.dart';
 import 'package:inventory_store/services/storage_service.dart';
+import 'package:inventory_store/widgets/app_router_widget.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -72,10 +73,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (shouldLogout != true) return;
 
     await AuthService.endSession();
-    Get.offAllNamed(
-      '/login',
-      arguments: {'skipAutoLogin': true},
-    );
+    Get.offAllNamed(AppRoutes.login, arguments: {'skipAutoLogin': true});
     Get.snackbar(
       'Logged Out',
       'Email: $emailLabel',
@@ -92,9 +90,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (_) {
         return AlertDialog(
-          title: Text(
-            _text('Change Password', 'پاس ورڈ تبدیل کریں'),
-          ),
+          title: Text(_text('Change Password', 'پاس ورڈ تبدیل کریں')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -131,17 +127,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             TextButton(
               onPressed: () async {
                 final currentEmail = await AuthService.currentUserEmail();
-                final savedPassword = await AuthService.getPasswordFor(
+                final isCurrentPasswordValid =
+                    await AuthService.validateCredentials(
                       currentEmail,
-                    ) ??
-                    '';
+                      currentCtrl.text,
+                    );
 
-                if (currentCtrl.text != savedPassword) {
+                if (!isCurrentPasswordValid) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          _text('Current password is incorrect', 'موجودہ پاس ورڈ غلط ہے'),
+                          _text(
+                            'Current password is incorrect',
+                            'موجودہ پاس ورڈ غلط ہے',
+                          ),
                         ),
                       ),
                     );
@@ -154,7 +154,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          _text('New password must be at least 4 characters', 'نیا پاس ورڈ کم از کم 4 حروف کا ہو'),
+                          _text(
+                            'New password must be at least 4 characters',
+                            'نیا پاس ورڈ کم از کم 4 حروف کا ہو',
+                          ),
                         ),
                       ),
                     );
@@ -167,7 +170,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          _text('Passwords do not match', 'پاس ورڈ ایک جیسے نہیں ہیں'),
+                          _text(
+                            'Passwords do not match',
+                            'پاس ورڈ ایک جیسے نہیں ہیں',
+                          ),
                         ),
                       ),
                     );
@@ -183,9 +189,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(
-                          _text('User not found', 'صارف نہیں ملا'),
-                        ),
+                        content: Text(_text('User not found', 'صارف نہیں ملا')),
                       ),
                     );
                   }
@@ -196,13 +200,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        _text('Password changed successfully', 'پاس ورڈ کامیابی سے تبدیل ہوگیا'),
+                        _text(
+                          'Password changed successfully',
+                          'پاس ورڈ کامیابی سے تبدیل ہوگیا',
+                        ),
                       ),
                     ),
                   );
                 }
                 Get.offAllNamed(
-                  '/login',
+                  AppRoutes.login,
                   arguments: {'skipAutoLogin': true},
                 );
               },
@@ -252,14 +259,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (_) {
         return AlertDialog(
           title: const Text('Storage Info'),
-          content: SingleChildScrollView(
-            child: SelectableText(text),
-          ),
+          content: SingleChildScrollView(child: SelectableText(text)),
           actions: [
-            TextButton(
-              onPressed: () => Get.back(),
-              child: const Text('Close'),
-            ),
+            TextButton(onPressed: () => Get.back(), child: const Text('Close')),
           ],
         );
       },
@@ -269,9 +271,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_text('Settings', 'سیٹنگز')),
-      ),
+      appBar: AppBar(title: Text(_text('Settings', 'سیٹنگز'))),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
