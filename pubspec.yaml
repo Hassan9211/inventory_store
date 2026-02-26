@@ -39,6 +39,7 @@ dependencies:
   mobile_scanner: ^5.2.3
   qr_flutter: ^4.1.0
   crypto: ^3.0.6
+  mailer: ^6.4.1
  
 
 

@@ -2,10 +2,10 @@
 
 import 'dart:math';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:inventory_store/services/auth_service.dart';
+import 'package:inventory_store/services/otp_email_service.dart';
 import 'package:inventory_store/widgets/app_router_widget.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -253,6 +253,7 @@ class ForgotPasswordEmailScreen extends StatefulWidget {
 
 class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
   late final TextEditingController emailCtrl;
+  bool _sendingOtp = false;
 
   @override
   void initState() {
@@ -267,6 +268,8 @@ class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
   }
 
   Future<void> _sendOtp() async {
+    if (_sendingOtp) return;
+
     final email = AuthService.normalizeEmail(emailCtrl.text);
     if (email.isEmpty) {
       Get.snackbar(
@@ -288,22 +291,26 @@ class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
     }
 
     final otp = (1000 + Random().nextInt(9000)).toString();
+    setState(() => _sendingOtp = true);
 
-    if (kDebugMode) {
-      // Debug-only helper for local testing without an OTP provider.
+    final result = await OtpEmailService.sendOtp(toEmail: email, otp: otp);
+    if (!mounted) return;
+    setState(() => _sendingOtp = false);
+
+    if (!result.success) {
       Get.snackbar(
-        "OTP Generated (Debug)",
-        "Use OTP: $otp",
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 4),
-      );
-    } else {
-      Get.snackbar(
-        "OTP Sent",
-        "Check your registered recovery channel.",
+        "Send Failed",
+        result.message,
         snackPosition: SnackPosition.BOTTOM,
       );
+      return;
     }
+
+    Get.snackbar(
+      "OTP Sent",
+      "Please check your email inbox.",
+      snackPosition: SnackPosition.BOTTOM,
+    );
 
     Get.to(() => ForgotPasswordOtpScreen(email: email, expectedOtp: otp));
   }
@@ -344,8 +351,8 @@ class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
                 SizedBox(
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _sendOtp,
-                    child: const Text("Send OTP"),
+                    onPressed: _sendingOtp ? null : _sendOtp,
+                    child: Text(_sendingOtp ? "Sending..." : "Send OTP"),
                   ),
                 ),
               ],
