@@ -128,7 +128,7 @@ class OtpEmailService {
     final attempts = <({SmtpServer server, String label})>[];
     attempts.add((
       server: _buildServer(port: _smtpPort, ssl: _useSsl),
-      label: '${_smtpHostValue}:${_smtpPort} ssl=$_useSsl',
+      label: '$_smtpHostValue:$_smtpPort ssl=$_useSsl',
     ));
 
     if (_isGmailHost) {
