@@ -1,243 +1,151 @@
-// ignore_for_file: use_build_context_synchronously
-
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:inventory_store/services/auth_service.dart';
-import 'package:inventory_store/services/otp_email_service.dart';
-import 'package:inventory_store/widgets/app_router_widget.dart';
+
+import '../controllers/product_controller.dart';
+import '../controllers/sales_controller.dart';
+import '../controllers/supplier_controller.dart';
+import '../routes/app_routes.dart';
+import '../core/utils/validators.dart';
+import '../services/auth_service.dart';
+import '../services/database_service.dart';
+import '../services/otp_email_service.dart';
 
 class LoginScreen extends StatefulWidget {
-  final bool skipAutoLogin; // to prevent auto-login after signup
-
-  const LoginScreen({super.key, this.skipAutoLogin = false});
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final userCtrl = TextEditingController();
-  final passwordCtrl = TextEditingController();
-  bool hidePassword = true;
-
-  @override
-  void initState() {
-    super.initState();
-    if (!widget.skipAutoLogin) _checkAutoLogin();
-  }
-
-  Future<void> _checkAutoLogin() async {
-    final shouldAutoLogin = await AuthService.canAutoLogin();
-    if (shouldAutoLogin) {
-      Get.offAllNamed(AppRoutes.home);
-    }
-  }
+  final _emailCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  bool _hidePassword = true;
 
   @override
   void dispose() {
-    userCtrl.dispose();
-    passwordCtrl.dispose();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
     super.dispose();
   }
 
-  void _openForgotPasswordFlow() {
-    Get.to(() => ForgotPasswordEmailScreen(initialEmail: userCtrl.text.trim()));
+  void _openForgotPassword() {
+    Get.to(() => ForgotPasswordEmailScreen(initialEmail: _emailCtrl.text));
   }
 
   @override
   Widget build(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    final isTablet = width >= 600 && width < 1024;
-    final isDesktop = width >= 1024;
-    final formWidth = isDesktop
-        ? 520.0
-        : isTablet
-        ? 420.0
-        : (width * 0.92).toDouble();
-
     return Scaffold(
       body: SafeArea(
-        child: Stack(
-          children: [
-            Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFFF7F7F4), Color(0xFFEAF4EC)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-            ),
-            Positioned(
-              top: -80,
-              right: -40,
-              child: Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFBEE3CB).withValues(alpha: 0.4),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-            Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Container(
-                  width: formWidth,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x11000000),
-                        blurRadius: 24,
-                        offset: Offset(0, 8),
-                      ),
-                    ],
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Icon(
+                    Icons.lock_outline,
+                    size: 64,
+                    color: Color(0xFF0E7A6D),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1F7A4D),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.inventory_2,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          const Text(
-                            "Inventory Store",
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        "Welcome Back",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Welcome Back',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _passwordCtrl,
+                    obscureText: _hidePassword,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _hidePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        "Sign in to manage inventory and billing.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Color(0xFF6B6B6B)),
-                      ),
-                      const SizedBox(height: 28),
-                      TextField(
-                        controller: userCtrl,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          labelText: "Email",
-                          prefixIcon: Icon(Icons.email_outlined),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      TextField(
-                        controller: passwordCtrl,
-                        obscureText: hidePassword,
-                        decoration: InputDecoration(
-                          labelText: "Password",
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              hidePassword
-                                  ? Icons.visibility_off
-                                  : Icons.visibility,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                hidePassword = !hidePassword;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: _openForgotPasswordFlow,
-                          child: const Text("Forgot Password?"),
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      SizedBox(
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            if (userCtrl.text.isEmpty ||
-                                passwordCtrl.text.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    "Please enter Email & Password",
-                                  ),
-                                ),
-                              );
-                              return;
-                            }
-
-                            final enteredUser = AuthService.normalizeEmail(
-                              userCtrl.text,
-                            );
-                            final isValid =
-                                await AuthService.validateCredentials(
-                                  enteredUser,
-                                  passwordCtrl.text,
-                                );
-
-                            if (isValid) {
-                              await AuthService.startSession(enteredUser);
-                              Get.offAllNamed(AppRoutes.home);
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text("Wrong Email or password"),
-                                ),
-                              );
-                            }
-                          },
-                          child: const Text(
-                            "Login",
-                            style: TextStyle(fontSize: 16),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      TextButton(
                         onPressed: () {
-                          Get.offNamed(AppRoutes.signup);
+                          setState(() {
+                            _hidePassword = !_hidePassword;
+                          });
                         },
-                        child: const Text("Don't have an account? Sign Up"),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _openForgotPassword,
+                      child: const Text('Forgot Password?'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final email = _emailCtrl.text.trim();
+                        final password = _passwordCtrl.text.trim();
+                        if (email.isEmpty || password.isEmpty) {
+                          _showMessage('Please enter email and password.');
+                          return;
+                        }
+
+                        final normalized = AuthService.normalizeEmail(email);
+                        final isValid = await AuthService.validateCredentials(
+                          normalized,
+                          password,
+                        );
+                        if (!isValid) {
+                          _showMessage('Invalid email or password.');
+                          return;
+                        }
+
+                        await AuthService.startSession(normalized);
+                        await DatabaseService.setActiveUser(normalized);
+                        await _reloadControllers();
+                        Get.offAllNamed(AppRoutes.dashboard);
+                      },
+                      child: const Text('Login'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () => Get.offNamed(AppRoutes.signup),
+                    child: const Text("Don't have an account? Sign Up"),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Future<void> _reloadControllers() async {
+    final productController = Get.find<ProductController>();
+    final supplierController = Get.find<SupplierController>();
+    final salesController = Get.find<SalesController>();
+    await productController.loadAll();
+    await supplierController.loadSuppliers();
+    await salesController.loadAll();
   }
 }
 
@@ -252,107 +160,112 @@ class ForgotPasswordEmailScreen extends StatefulWidget {
 }
 
 class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
-  late final TextEditingController emailCtrl;
-  bool _sendingOtp = false;
+  late final TextEditingController _emailCtrl;
+  bool _sending = false;
 
   @override
   void initState() {
     super.initState();
-    emailCtrl = TextEditingController(text: widget.initialEmail);
+    _emailCtrl = TextEditingController(text: widget.initialEmail);
   }
 
   @override
   void dispose() {
-    emailCtrl.dispose();
+    _emailCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _sendOtp() async {
-    if (_sendingOtp) return;
+    if (_sending) return;
 
-    final email = AuthService.normalizeEmail(emailCtrl.text);
+    final email = AuthService.normalizeEmail(_emailCtrl.text);
     if (email.isEmpty) {
-      Get.snackbar(
-        "Missing Email",
-        "Please enter your email.",
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      _showMessage('Please enter your email.');
       return;
     }
 
     final exists = await AuthService.accountExists(email);
     if (!exists) {
-      Get.snackbar(
-        "Not Found",
-        "No account found for this email.",
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      _showMessage('No account found for this email.');
       return;
     }
 
-    final otp = (1000 + Random().nextInt(9000)).toString();
-    setState(() => _sendingOtp = true);
-
-    final result = await OtpEmailService.sendOtp(toEmail: email, otp: otp);
+    setState(() => _sending = true);
+    final result = await OtpEmailService.sendOtp(toEmail: email);
     if (!mounted) return;
-    setState(() => _sendingOtp = false);
+    setState(() => _sending = false);
 
     if (!result.success) {
-      Get.snackbar(
-        "Send Failed",
-        result.message,
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      _showMessage(result.message);
       return;
     }
 
-    Get.snackbar(
-      "OTP Sent",
-      "Please check your email inbox.",
-      snackPosition: SnackPosition.BOTTOM,
-    );
+    if (result.debugOtp != null) {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('OTP (Dev Mode)'),
+          content: Text('Your OTP is: ${result.debugOtp}'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      _showMessage('OTP sent. Please check your email.');
+    }
 
-    Get.to(() => ForgotPasswordOtpScreen(email: email, expectedOtp: otp));
+    if (!mounted) return;
+    Get.to(() => ForgotPasswordOtpScreen(email: email));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Reset Password")),
+      appBar: AppBar(title: const Text('Reset Password')),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
+            constraints: const BoxConstraints(maxWidth: 420),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Icon(
                   Icons.mark_email_read_outlined,
                   size: 64,
-                  color: Color(0xFF1F7A4D),
+                  color: Color(0xFF0E7A6D),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 const Text(
-                  "Enter your email to reset your password",
+                  'Enter your email to receive OTP',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 20),
                 TextField(
-                  controller: emailCtrl,
+                  controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: "Email",
-                    prefixIcon: Icon(Icons.email_outlined),
+                  decoration: const InputDecoration(labelText: 'Email'),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: _sending ? null : _sendOtp,
+                    child: Text(_sending ? 'Sending...' : 'Send OTP'),
                   ),
                 ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _sendingOtp ? null : _sendOtp,
-                    child: Text(_sendingOtp ? "Sending..." : "Send OTP"),
+                const SizedBox(height: 10),
+                Text(
+                  OtpEmailService.smtpStatusMessage(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF8A8A8A),
                   ),
                 ),
               ],
@@ -362,49 +275,45 @@ class _ForgotPasswordEmailScreenState extends State<ForgotPasswordEmailScreen> {
       ),
     );
   }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 }
 
 class ForgotPasswordOtpScreen extends StatefulWidget {
   final String email;
-  final String expectedOtp;
 
-  const ForgotPasswordOtpScreen({
-    super.key,
-    required this.email,
-    required this.expectedOtp,
-  });
+  const ForgotPasswordOtpScreen({super.key, required this.email});
 
   @override
-  State<ForgotPasswordOtpScreen> createState() =>
-      _ForgotPasswordOtpScreenState();
+  State<ForgotPasswordOtpScreen> createState() => _ForgotPasswordOtpScreenState();
 }
 
 class _ForgotPasswordOtpScreenState extends State<ForgotPasswordOtpScreen> {
-  final otpCtrl = TextEditingController();
+  final _otpCtrl = TextEditingController();
 
   @override
   void dispose() {
-    otpCtrl.dispose();
+    _otpCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _verifyOtp() async {
-    final enteredOtp = otpCtrl.text.trim();
-    if (enteredOtp.length != 4) {
-      Get.snackbar(
-        "Invalid OTP",
-        "Please enter a 4-digit OTP.",
-        snackPosition: SnackPosition.BOTTOM,
-      );
+    final otp = _otpCtrl.text.trim();
+    if (otp.length != 4) {
+      _showMessage('Please enter a 4-digit OTP.');
       return;
     }
 
-    if (enteredOtp != widget.expectedOtp) {
-      Get.snackbar(
-        "Wrong OTP",
-        "The OTP you entered is incorrect.",
-        snackPosition: SnackPosition.BOTTOM,
-      );
+    final ok = await OtpEmailService.verifyOtp(
+      email: widget.email,
+      otp: otp,
+    );
+    if (!ok) {
+      _showMessage('Invalid or expired OTP.');
       return;
     }
 
@@ -414,50 +323,49 @@ class _ForgotPasswordOtpScreenState extends State<ForgotPasswordOtpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Verify OTP")),
+      appBar: AppBar(title: const Text('Verify OTP')),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
+            constraints: const BoxConstraints(maxWidth: 420),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Icon(
                   Icons.verified_user_outlined,
                   size: 64,
-                  color: Color(0xFF1F7A4D),
+                  color: Color(0xFF0E7A6D),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 const Text(
-                  "Enter 4-digit OTP",
+                  'Enter OTP',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Text(
                   widget.email,
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Color(0xFF6B6B6B)),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 18),
                 TextField(
-                  controller: otpCtrl,
+                  controller: _otpCtrl,
                   keyboardType: TextInputType.number,
                   maxLength: 4,
                   textAlign: TextAlign.center,
                   decoration: const InputDecoration(
-                    labelText: "OTP",
-                    prefixIcon: Icon(Icons.password),
+                    labelText: 'OTP',
                     counterText: '',
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
                 SizedBox(
-                  height: 50,
+                  height: 48,
                   child: ElevatedButton(
                     onPressed: _verifyOtp,
-                    child: const Text("Verify OTP"),
+                    child: const Text('Verify'),
                   ),
                 ),
               ],
@@ -465,6 +373,12 @@ class _ForgotPasswordOtpScreenState extends State<ForgotPasswordOtpScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 }
@@ -479,105 +393,106 @@ class SetNewPasswordScreen extends StatefulWidget {
 }
 
 class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
-  final newPasswordCtrl = TextEditingController();
-  final confirmPasswordCtrl = TextEditingController();
+  final _newPasswordCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
 
   @override
   void dispose() {
-    newPasswordCtrl.dispose();
-    confirmPasswordCtrl.dispose();
+    _newPasswordCtrl.dispose();
+    _confirmCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _saveNewPassword() async {
-    final newPassword = newPasswordCtrl.text.trim();
-    final confirmPassword = confirmPasswordCtrl.text.trim();
+  Future<void> _savePassword() async {
+    final newPassword = _newPasswordCtrl.text.trim();
+    final confirm = _confirmCtrl.text.trim();
 
-    if (newPassword.length < 4) {
-      Get.snackbar(
-        "Weak Password",
-        "Password must be at least 4 characters.",
-        snackPosition: SnackPosition.BOTTOM,
-      );
+    final strengthError = validatePasswordStrength(newPassword);
+    if (strengthError != null) {
+      _showMessage(strengthError);
       return;
     }
-
-    if (newPassword != confirmPassword) {
-      Get.snackbar(
-        "Mismatch",
-        "New password and confirmation do not match.",
-        snackPosition: SnackPosition.BOTTOM,
-      );
+    if (newPassword != confirm) {
+      _showMessage('Passwords do not match.');
       return;
     }
 
     final updated = await AuthService.updatePassword(widget.email, newPassword);
     if (!updated) {
-      Get.snackbar(
-        "Failed",
-        "Could not update password.",
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      _showMessage('Could not update password.');
       return;
     }
 
     await AuthService.endSession();
-    Get.offAll(() => PasswordResetSuccessScreen(email: widget.email));
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Success'),
+        content: const Text('Password updated. Please login again.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    Get.offAllNamed(AppRoutes.login);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Set New Password")),
+      appBar: AppBar(title: const Text('Set New Password')),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
+            constraints: const BoxConstraints(maxWidth: 420),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Icon(
                   Icons.lock_reset,
                   size: 64,
-                  color: Color(0xFF1F7A4D),
+                  color: Color(0xFF0E7A6D),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 const Text(
-                  "Create a new password",
+                  'Create a new password',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 Text(
                   widget.email,
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Color(0xFF6B6B6B)),
                 ),
-                const SizedBox(height: 22),
-                TextField(
-                  controller: newPasswordCtrl,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: "New Password",
-                    prefixIcon: Icon(Icons.lock_outline),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: confirmPasswordCtrl,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: "Confirm New Password",
-                    prefixIcon: Icon(Icons.check_circle_outline),
-                  ),
-                ),
                 const SizedBox(height: 18),
+                TextField(
+                  controller: _newPasswordCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'New Password'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _confirmCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Confirm Password',
+                  ),
+                ),
+                const SizedBox(height: 16),
                 SizedBox(
-                  height: 50,
+                  height: 48,
                   child: ElevatedButton(
-                    onPressed: _saveNewPassword,
-                    child: const Text("Save Password"),
+                    onPressed: _savePassword,
+                    child: const Text('Save Password'),
                   ),
                 ),
               ],
@@ -587,59 +502,11 @@ class _SetNewPasswordScreenState extends State<SetNewPasswordScreen> {
       ),
     );
   }
-}
 
-class PasswordResetSuccessScreen extends StatelessWidget {
-  final String email;
-
-  const PasswordResetSuccessScreen({super.key, required this.email});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const CircleAvatar(
-                  radius: 44,
-                  backgroundColor: Color(0x1F1F7A4D),
-                  child: Icon(Icons.check, size: 54, color: Color(0xFF1F7A4D)),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  "You have successfully update your password",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  "Email: $email\nPlease login with your new password.",
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Color(0xFF6B6B6B)),
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Get.offAllNamed(
-                        AppRoutes.login,
-                        arguments: {'skipAutoLogin': true},
-                      );
-                    },
-                    child: const Text("Back to Login"),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 }
+

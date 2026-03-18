@@ -6,8 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   static const String _accountsKey = 'accounts_json';
+  static const String _namesKey = 'account_names_json';
   static const String _credentialPrefix = 'v1:';
-  static const int _hashRounds = 12000;
+  static const int _hashRounds = 8000;
   static final Random _secureRandom = Random.secure();
 
   static String normalizeEmail(String email) {
@@ -49,7 +50,6 @@ class AuthService {
     if (storedCredential.isEmpty) return false;
 
     if (!_isHashedCredential(storedCredential)) {
-      // Legacy plain-text value support for migration.
       return storedCredential == password;
     }
 
@@ -62,82 +62,52 @@ class AuthService {
     return actualHash == expectedHash;
   }
 
-  static Future<Map<String, String>> _upgradeAccountsIfNeeded(
-    Map<String, String> accounts,
-  ) async {
-    var changed = false;
-    final upgraded = <String, String>{};
-
-    for (final entry in accounts.entries) {
-      final normalizedEmail = normalizeEmail(entry.key);
-      final credential = entry.value;
-
-      if (normalizedEmail.isEmpty || credential.isEmpty) {
-        changed = true;
-        continue;
-      }
-
-      if (normalizedEmail != entry.key) {
-        changed = true;
-      }
-
-      if (_isHashedCredential(credential)) {
-        upgraded[normalizedEmail] = credential;
-      } else {
-        upgraded[normalizedEmail] = _encodeCredential(credential);
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      await _writeAccounts(upgraded);
-    }
-    return upgraded;
-  }
-
   static Future<Map<String, String>> _readAccounts() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_accountsKey);
 
     if (raw == null || raw.trim().isEmpty) {
-      return _migrateLegacyAccountIfNeeded(prefs);
+      return {};
     }
 
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return {};
-      final accounts = decoded.map(
+      return decoded.map(
         (key, value) => MapEntry(key.toString(), value?.toString() ?? ''),
       );
-      return _upgradeAccountsIfNeeded(accounts);
     } catch (_) {
       return {};
     }
   }
 
-  static Future<Map<String, String>> _migrateLegacyAccountIfNeeded(
-    SharedPreferences prefs,
-  ) async {
-    final legacyEmail = normalizeEmail(prefs.getString('username') ?? '');
-    final legacyPassword =
-        prefs.getString('password') ?? prefs.getString('pin') ?? '';
+  static Future<Map<String, String>> _readNames() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_namesKey);
 
-    if (legacyEmail.isEmpty || legacyPassword.isEmpty) {
+    if (raw == null || raw.trim().isEmpty) {
       return {};
     }
 
-    final accounts = <String, String>{
-      legacyEmail: _encodeCredential(legacyPassword),
-    };
-    await prefs.setString(_accountsKey, jsonEncode(accounts));
-    await prefs.remove('password');
-    await prefs.remove('pin');
-    return accounts;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return {};
+      return decoded.map(
+        (key, value) => MapEntry(key.toString(), value?.toString() ?? ''),
+      );
+    } catch (_) {
+      return {};
+    }
   }
 
   static Future<void> _writeAccounts(Map<String, String> accounts) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_accountsKey, jsonEncode(accounts));
+  }
+
+  static Future<void> _writeNames(Map<String, String> names) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_namesKey, jsonEncode(names));
   }
 
   static Future<bool> hasAnyAccount() async {
@@ -164,12 +134,26 @@ class AuthService {
     await _writeAccounts(accounts);
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('username', normalized);
-    await prefs.setString('current_user_email', normalized);
     await prefs.setBool('is_logged_in', false);
-    await prefs.remove('password');
-    await prefs.remove('pin');
     return true;
+  }
+
+  static Future<void> setAccountName(String email, String name) async {
+    final normalized = normalizeEmail(email);
+    if (normalized.isEmpty) return;
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+
+    final names = await _readNames();
+    names[normalized] = trimmed;
+    await _writeNames(names);
+  }
+
+  static Future<String> getAccountName(String email) async {
+    final normalized = normalizeEmail(email);
+    if (normalized.isEmpty) return '';
+    final names = await _readNames();
+    return names[normalized] ?? '';
   }
 
   static Future<bool> validateCredentials(String email, String password) async {
@@ -179,14 +163,9 @@ class AuthService {
     if (savedCredential == null) return false;
 
     final isValid = _verifyCredential(savedCredential, password);
-    if (!isValid) return false;
-
-    if (!_isHashedCredential(savedCredential)) {
-      accounts[normalized] = _encodeCredential(password);
-      await _writeAccounts(accounts);
-    }
-    return true;
+    return isValid;
   }
+
 
   static Future<bool> updatePassword(String email, String newPassword) async {
     final normalized = normalizeEmail(email);
@@ -197,10 +176,6 @@ class AuthService {
 
     accounts[normalized] = _encodeCredential(newPassword);
     await _writeAccounts(accounts);
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('password');
-    await prefs.remove('pin');
     return true;
   }
 
@@ -211,9 +186,6 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('is_logged_in', true);
     await prefs.setString('current_user_email', normalized);
-    await prefs.setString('username', normalized);
-    await prefs.remove('password');
-    await prefs.remove('pin');
   }
 
   static Future<void> endSession() async {
@@ -224,11 +196,7 @@ class AuthService {
 
   static Future<String> currentUserEmail() async {
     final prefs = await SharedPreferences.getInstance();
-    return normalizeEmail(
-      prefs.getString('current_user_email') ??
-          prefs.getString('username') ??
-          '',
-    );
+    return normalizeEmail(prefs.getString('current_user_email') ?? '');
   }
 
   static Future<bool> canAutoLogin() async {
@@ -240,12 +208,6 @@ class AuthService {
     if (currentEmail.isEmpty) return false;
 
     final accounts = await _readAccounts();
-    if (!accounts.containsKey(currentEmail)) return false;
-
-    await prefs.setString('current_user_email', currentEmail);
-    await prefs.setString('username', currentEmail);
-    await prefs.remove('password');
-    await prefs.remove('pin');
-    return true;
+    return accounts.containsKey(currentEmail);
   }
 }

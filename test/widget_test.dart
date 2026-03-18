@@ -1,28 +1,23 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:inventory_store/widgets/app_router_widget.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:get/get.dart';
+import 'package:inventory_store/controllers/product_controller.dart';
+import 'package:inventory_store/controllers/sales_controller.dart';
+import 'package:inventory_store/controllers/supplier_controller.dart';
+import 'package:inventory_store/main.dart';
+import 'package:inventory_store/services/database_service.dart';
 
 void main() {
-  testWidgets('shows splash first then opens signup for new user', (
-    WidgetTester tester,
-  ) async {
-    SharedPreferences.setMockInitialValues({});
+  testWidgets('shows dashboard overview', (WidgetTester tester) async {
+    Get.testMode = true;
+    await DatabaseService.reset();
+    Get.put(ProductController());
+    Get.put(SupplierController());
+    Get.put(SalesController());
 
-    await tester.pumpWidget(
-      const AppRouterWidget(
-        initialThemeMode: ThemeMode.light,
-        initialLanguageCode: 'en',
-      ),
-    );
-
-    expect(find.text('Inventory Store'), findsOneWidget);
-    expect(find.text('Smart stock management'), findsOneWidget);
-
-    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpWidget(const InventoryApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Create your account'), findsOneWidget);
-    expect(find.text('Already have an account? Login'), findsOneWidget);
+    expect(find.text('Overview'), findsOneWidget);
+    expect(find.text('Quick Actions'), findsOneWidget);
   });
 }
